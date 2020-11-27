@@ -114,7 +114,7 @@ def get_levels(catalogue, item, levels):
     return
 
 
-def create_folder(catalogue, entity, item, parent_ref):
+def create_folder(catalogue, entity, item, parent_ref, security_tag):
     description = item['title'].replace("&", "&amp;")
 
     title = item['ref. code']
@@ -125,7 +125,7 @@ def create_folder(catalogue, entity, item, parent_ref):
 
     title = title.replace("&", "&amp;")
 
-    folder = entity.create_folder(title=title, description=description, security_tag="open", parent=parent_ref)
+    folder = entity.create_folder(title=title, description=description, security_tag=security_tag, parent=parent_ref)
     entity.add_identifier(folder, ScopeArchivID, item['id'])
 
     element = create_tree(item)
@@ -137,7 +137,7 @@ def create_folder(catalogue, entity, item, parent_ref):
     return folder
 
 
-def create_parent_series(catalogue, entity, system_id):
+def create_parent_series(catalogue, entity, system_id, security_tag):
     folder = does_folder_exist(entity, system_id)
     if folder is not None:
         return folder
@@ -147,19 +147,19 @@ def create_parent_series(catalogue, entity, system_id):
     parent_id = item['parent id']
     if parent_id is None:
         print(f"Creating Folder with id: {system_id}")
-        return create_folder(catalogue, entity, item, None)
+        return create_folder(catalogue, entity, item, None, security_tag)
 
     parent_item = catalogue.get_by_id(parent_id)
 
     parent_folder = does_folder_exist(entity, parent_item['id'])
     if parent_folder is not None:
         print(f"Creating Folder with id: {item['id']}")
-        return create_folder(catalogue, entity, item, parent_folder.reference)
+        return create_folder(catalogue, entity, item, parent_folder.reference, security_tag)
     else:
-        return create_parent_series(catalogue, entity, parent_item['id'])
+        return create_parent_series(catalogue, entity, parent_item['id'], security_tag)
 
 
-def get_folder(entity, item, catalogue):
+def get_folder(entity, item, catalogue, security_tag):
     parent_id = item['parent id']
     folder = does_folder_exist(entity, parent_id)
     if folder is not None:
@@ -169,7 +169,7 @@ def get_folder(entity, item, catalogue):
     get_levels(catalogue, item, folder_ids)
     folder_ids.reverse()
     for system_id in folder_ids:
-        folder_map[system_id] = create_parent_series(catalogue, entity, system_id)
+        folder_map[system_id] = create_parent_series(catalogue, entity, system_id, security_tag)
 
     return folder_map[parent_id]
 
@@ -264,7 +264,9 @@ def create_package(folder, document, content_paths, config, item, progress):
 
     xipref = str(uuid.uuid4())
 
-    package_path = complex_asset_package(Title=asset_title, Description=asset_description,
+    security_tag = config['credentials']['security.tag']
+
+    package_path = complex_asset_package(Title=asset_title, Description=asset_description, SecurityTag=security_tag,
                                          preservation_files_list=preservation_files_list,
                                          Preservation_Content_Description="Single Page JP2000 Image",
                                          Access_Content_Description="Multipage PDF document",
@@ -339,6 +341,7 @@ def main():
     catalogue_path = config['credentials']['catalogue.path']
     jar_path = config['credentials']['jar_path']
     document_path = config['credentials']['document.path']
+    security_tag = config['credentials']['security.tag']
 
     catalogue = Catalogue(java_home, catalogue_path, jar_path)
     progress = ProgressDB(java_home, document_path, jar_path)
@@ -375,7 +378,7 @@ def main():
                             print(f"Dry-run enabled skipping...")
                             continue
                         else:
-                            folder = get_folder(entity, result, catalogue)
+                            folder = get_folder(entity, result, catalogue, security_tag)
                             content_paths = document_map[key]
                             create_package(folder, key, content_paths, config, result, progress)
                     elif len(identifiers) > 1:
