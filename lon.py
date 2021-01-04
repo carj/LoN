@@ -348,6 +348,10 @@ def main():
 
     entity = EntityAPI()
 
+    max_submission = int(config['credentials']['max.submission'])
+
+    numb_submission = int(0)
+
     for path in batch_paths:
         batch_id = os.path.basename(os.path.dirname(path))
         with open(f"{batch_id}.csv", 'w', newline='') as not_matched_csv:
@@ -379,6 +383,12 @@ def main():
                             folder = get_folder(entity, result, catalogue, security_tag)
                             content_paths = document_map[key]
                             create_package(folder, key, content_paths, config, result, progress)
+                            numb_submission = numb_submission + 1
+
+                            if max_submission > 0:
+                                if numb_submission >= max_submission:
+                                    print("Max Submission Reached")
+                                    return
                     elif len(identifiers) > 1:
                         print("Found Duplicate Assets for {ref_code}")
                 else:
