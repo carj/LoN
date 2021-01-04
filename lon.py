@@ -310,8 +310,8 @@ def create_package(folder, document, content_paths, config, item, progress):
     submission.parentId = item['parent id']
     submission.xipRef = xipref
     submission.title = asset_description
-    submission.refCode = item['ref. code'].upper()
-    submission.refCodeAP = item['ref. code ap'].upper()
+    submission.refCode = item['ref. code']
+    submission.refCodeAP = item['ref. code ap']
     submission.sipName = upload_key
     submission.ingested = False
     submission.SIP_SIZE = int(metadata['size'])
@@ -345,8 +345,6 @@ def main():
 
     catalogue = Catalogue(java_home, catalogue_path, jar_path)
     progress = ProgressDB(java_home, document_path, jar_path)
-
-    #progress.truncate()
 
     entity = EntityAPI()
 
@@ -385,6 +383,7 @@ def main():
                         print("Found Duplicate Assets for {ref_code}")
                 else:
                     csv_writer.writerow((batch_id, key, ref_code))
+                    progress.save_not_matched(key, ref_code, batch_id)
                     print(f"Could not match folder name {key} to a valid ref code. Tried to use {ref_code}")
 
     catalogue.close()

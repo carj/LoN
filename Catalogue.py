@@ -97,7 +97,7 @@ class ProgressDB:
             return None
 
     def check_in_refCode(self, refcode):
-        query = f"select * from DOCUMENTS WHERE REFCODE = '{refcode.upper()}'"
+        query = f"select * from DOCUMENTS WHERE UPPER(REFCODE) = '{refcode.upper()}'"
         cursor = self.connection.cursor()
         cursor.execute(query)
         column_names = [record[0].lower() for record in cursor.description]
@@ -106,13 +106,19 @@ class ProgressDB:
         return column_and_values
 
     def check_in_refCodeAP(self, refcode):
-        query = f"select * from DOCUMENTS WHERE REFCODEAP = '{refcode.upper()}'"
+        query = f"select * from DOCUMENTS WHERE UPPER(REFCODEAP) = '{refcode.upper()}'"
         cursor = self.connection.cursor()
         cursor.execute(query)
         column_names = [record[0].lower() for record in cursor.description]
         column_and_values = [dict(zip(column_names, record)) for record in cursor.fetchall()]
         cursor.close()
         return column_and_values
+
+    def save_not_matched(self, folderName, refCode, batch):
+        query = "INSERT INTO NOT_MATCHED (FOLDER, REFCODE, BATCH) values (?,?,?)"
+        cursor = self.connection.cursor()
+        cursor.execute(query, (folderName, refCode, batch))
+        cursor.close()
 
     def save(self, submisson):
         query = "insert into DOCUMENTS (systemId, parentId, xipRef, title, refCode, refCodeAP, sipName, " \
@@ -129,16 +135,16 @@ class Catalogue:
     def __init__(self, java_home, db_path, jar_path):
         os.environ["JAVA_HOME"] = java_home
         self.connection = jaydebeapi.connect(
-            "org.h2.Driver", f"jdbc:h2:{db_path};IFEXISTS=TRUE", ["sa", ""], jar_path)
+            "org.h2.Driver", f"jdbc:h2:{db_path};IFEXISTS=TRUE;DATABASE_TO_UPPER=TRUE", ["sa", ""], jar_path)
 
     def close(self):
         self.connection.close()
 
     def get_by_ref_code(self, code):
-        return self.select_query(f"select * from Fonds where ref_code_upper = '{code.upper().strip()}'")
+        return self.select_query(f'select * from Fonds where UPPER("Ref. Code") = ' + f"'{code.upper().strip()}'")
 
     def get_by_ref_code_ap(self, code):
-        return self.select_query(f"select * from Fonds where ref_code_a_upper = '{code.upper().strip()}'")
+        return self.select_query(f'select * from Fonds where UPPER("Ref. Code AP") = ' + f"'{code.upper().strip()}'")
 
     def get_by_id(self, system_id):
         result = self.select_query(f"select * from Fonds where ID = {int(system_id)}")
