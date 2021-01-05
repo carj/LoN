@@ -324,6 +324,18 @@ def create_package(folder, document, content_paths, config, item, progress):
     os.remove(package_path)
 
 
+def try_to_find_record_from_folder(folder, catalogue):
+    ref_code = get_code_from_box(folder)
+    result = catalogue.get_by_ref(ref_code)
+    if result is not None:
+        return result, ref_code
+    else:
+        folder = folder.replace("Jacket-", "Jacket ")
+        ref_code = get_code_from_box(folder)
+        result = catalogue.get_by_ref(ref_code)
+        return result, ref_code
+
+
 def main():
     config = configparser.ConfigParser()
     config.read('credentials.properties')
@@ -360,8 +372,7 @@ def main():
             paths = get_PDF_JPEG_CSV(path)
             document_map = get_document_locations(paths)
             for key in document_map:
-                ref_code = get_code_from_box(key)
-                result = catalogue.get_by_ref(ref_code)
+                result, ref_code = try_to_find_record_from_folder(key, catalogue)
                 if result is not None:
                     in_progress = progress.check_in_progress(ref_code)
                     if in_progress is not None:
