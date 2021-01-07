@@ -127,6 +127,8 @@ def create_folder(catalogue, entity, item, parent_ref, security_tag):
 
     folder = entity.create_folder(title=title, description=description, security_tag=security_tag, parent=parent_ref)
     entity.add_identifier(folder, ScopeArchivID, item['id'])
+    if item['ref. code']:
+        entity.add_identifier(folder, "REF", item['ref. code'])
 
     element = create_tree(item)
     xml_doc = xml.etree.ElementTree.tostring(element, encoding="utf-8").decode("utf-8")
