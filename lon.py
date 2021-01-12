@@ -1,5 +1,6 @@
 import configparser
 import os
+import time
 import csv
 import xml.etree.ElementTree
 import xml.dom.minidom
@@ -374,9 +375,15 @@ def main():
             paths = get_PDF_JPEG_CSV(path)
             document_map = get_document_locations(paths)
             for key in document_map:
+                tic = time.perf_counter()
                 result, ref_code = try_to_find_record_from_folder(key, catalogue)
+                toc = time.perf_counter()
+                print(f"Lookup refcode in catalogue took {toc - tic:0.4f} seconds")
                 if result is not None:
+                    tic = time.perf_counter()
                     in_progress = progress.check_in_progress(ref_code)
+                    toc = time.perf_counter()
+                    print(f"Lookup refcode in progress database {toc - tic:0.4f} seconds")
                     if in_progress is not None:
                         print(f"{ref_code} found in the in-progress database. Skipping....")
                         continue
