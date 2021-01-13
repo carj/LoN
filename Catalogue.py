@@ -141,10 +141,10 @@ class Catalogue:
         self.connection.close()
 
     def get_by_ref_code(self, code):
-        return self.select_query(f'select * from Fonds where UPPER("Ref. Code") = ' + f"'{code.upper().strip()}'")
+        return self.select_query(f'select * from Fonds where REF_CODE_UPPER = ' + f"'{code.upper().strip()}'")
 
     def get_by_ref_code_ap(self, code):
-        return self.select_query(f'select * from Fonds where UPPER("Ref. Code AP") = ' + f"'{code.upper().strip()}'")
+        return self.select_query(f'select * from Fonds where REF_CODE_A_UPPER = ' + f"'{code.upper().strip()}'")
 
     def get_by_id(self, system_id):
         result = self.select_query(f"select * from Fonds where ID = {int(system_id)}")
