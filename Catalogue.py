@@ -97,7 +97,7 @@ class ProgressDB:
             return None
 
     def check_in_refCode(self, refcode):
-        query = f"select * from DOCUMENTS WHERE UPPER(REFCODE) = '{refcode.upper()}'"
+        query = f"select * from DOCUMENTS WHERE REFCODE_UPPER = '{refcode.upper()}'"
         cursor = self.connection.cursor()
         cursor.execute(query)
         column_names = [record[0].lower() for record in cursor.description]
@@ -106,7 +106,7 @@ class ProgressDB:
         return column_and_values
 
     def check_in_refCodeAP(self, refcode):
-        query = f"select * from DOCUMENTS WHERE UPPER(REFCODEAP) = '{refcode.upper()}'"
+        query = f"select * from DOCUMENTS WHERE REFCODE_A_UPPER = '{refcode.upper()}'"
         cursor = self.connection.cursor()
         cursor.execute(query)
         column_names = [record[0].lower() for record in cursor.description]
