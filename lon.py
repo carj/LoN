@@ -268,6 +268,12 @@ def create_package(folder, document, content_paths, config, item, progress):
     xipref = str(uuid.uuid4())
 
     security_tag = config['credentials']['security.tag']
+    security_tag_private = config['credentials']['security.tag.private']
+
+    term_of_protection = item['note top']
+    if term_of_protection:
+        security_tag = security_tag_private
+        print(f"Setting private security tag because note ToP is {term_of_protection}")
 
     package_path = complex_asset_package(Title=asset_title, Description=asset_description, SecurityTag=security_tag,
                                          preservation_files_list=preservation_files_list,
@@ -377,10 +383,7 @@ def main():
             for key in document_map:
                 result, ref_code = try_to_find_record_from_folder(key, catalogue)
                 if result is not None:
-                    tic = time.perf_counter()
                     in_progress = progress.check_in_progress(ref_code)
-                    toc = time.perf_counter()
-                    print(f"Lookup refcode in progress database {toc - tic:0.4f} seconds")
                     if in_progress is not None:
                         print(f"{ref_code} found in the in-progress database. Skipping....")
                         continue
@@ -401,7 +404,6 @@ def main():
                             content_paths = document_map[key]
                             create_package(folder, key, content_paths, config, result, progress)
                             numb_submission = numb_submission + 1
-
                             if max_submission > 0:
                                 if numb_submission >= max_submission:
                                     print("Max Submission Reached")
