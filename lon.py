@@ -24,6 +24,19 @@ folder_map = dict()
 
 transfer_config = boto3.s3.transfer.TransferConfig()
 
+ref_code__map = dict()
+ref_code__map['S26-26-1-30-31-6'] = 'S26/26/1/30-31/6'
+ref_code__map['S12-12-29-31-5'] = 'S12/12/29-31/5'
+ref_code__map['S12-12-29-30-6'] = 'S12/12/29-30/6'
+ref_code__map['S12-12-27-28-4'] = 'S12/12/27-28/4'
+ref_code__map['S11-11-27-28-3'] = 'S11/11/27-28/3'
+ref_code__map['R597-11-15971-59524-Jacket-2'] = 'R597/11/15971/59524/Jacket2'
+ref_code__map['R597-11-15971-59524-Jacket-1'] = 'R597/11/15971/59524/Jacket1'
+ref_code__map['R595-11-15971-34254-Jacket-2'] = 'R595/11/15971/34254/Jacket2'
+ref_code__map['R595-11-15971-34254-Jacket-1'] = 'R595/11/15971/34254/Jacket1'
+ref_code__map['R3335-15-6960-6873'] = 'R3335/15/6960/6873/Jacket2'
+ref_code__map['R1586-40-35975-13313'] = ' R1586/40/13313/35975'
+
 
 class ProgressPercentage:
 
@@ -116,8 +129,6 @@ def get_levels(catalogue, item, levels):
 
 
 def create_folder(catalogue, entity, item, parent_ref, security_tag):
-    description = item['title'].replace("&", "&amp;")
-
     title = item['ref. code']
     if not title:
         title = item['ref. code ap']
@@ -125,6 +136,17 @@ def create_folder(catalogue, entity, item, parent_ref, security_tag):
         title = item['title']
 
     title = title.replace("&", "&amp;")
+
+    if item['ref. code']:
+        description = item['ref. code']
+    else:
+        description = item['ref. code ap']
+
+    if item['translated title']:
+        description = item['translated title'].replace("&", "&amp;")
+
+    if item['title']:
+        description = item['title'].replace("&", "&amp;")
 
     folder = entity.create_folder(title=title, description=description, security_tag=security_tag, parent=parent_ref)
     entity.add_identifier(folder, ScopeArchivID, item['id'])
@@ -318,7 +340,7 @@ def create_package(folder, document, content_paths, config, item, progress):
     submission.systemId = item['id']
     submission.parentId = item['parent id']
     submission.xipRef = xipref
-    submission.title = asset_description
+    submission.title = asset_description[:500]
     submission.refCode = item['ref. code']
     submission.refCodeAP = item['ref. code ap']
     submission.sipName = upload_key
@@ -334,7 +356,12 @@ def create_package(folder, document, content_paths, config, item, progress):
 
 
 def try_to_find_record_from_folder(folder, catalogue):
-    ref_code = get_code_from_box(folder)
+
+    if folder in ref_code__map:
+        ref_code = ref_code__map[folder]
+    else:
+        ref_code = get_code_from_box(folder)
+
     result = catalogue.get_by_ref(ref_code)
     if result is not None:
         return result, ref_code
