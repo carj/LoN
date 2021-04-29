@@ -155,7 +155,7 @@ class Catalogue:
         result = self.get_by_ref_code(code)
         if len(result) == 0:
             result = self.get_by_ref_code_ap(code)
-        if len(result) > 1:
+        if len(result) > 0:
             return result[0]
         else:
             return None

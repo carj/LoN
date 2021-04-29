@@ -20,22 +20,13 @@ from Catalogue import Catalogue, create_tree, ProgressDB, Submission
 REF_NO = "REF"
 ScopeArchivID = "ScopeArchivID"
 
+MAX_BUCKET_SIZE = 48
+
 folder_map = dict()
 
 transfer_config = boto3.s3.transfer.TransferConfig()
 
 ref_code__map = dict()
-ref_code__map['S26-26-1-30-31-6'] = 'S26/26/1/30-31/6'
-ref_code__map['S12-12-29-31-5'] = 'S12/12/29-31/5'
-ref_code__map['S12-12-29-30-6'] = 'S12/12/29-30/6'
-ref_code__map['S12-12-27-28-4'] = 'S12/12/27-28/4'
-ref_code__map['S11-11-27-28-3'] = 'S11/11/27-28/3'
-ref_code__map['R597-11-15971-59524-Jacket-2'] = 'R597/11/15971/59524/Jacket2'
-ref_code__map['R597-11-15971-59524-Jacket-1'] = 'R597/11/15971/59524/Jacket1'
-ref_code__map['R595-11-15971-34254-Jacket-2'] = 'R595/11/15971/34254/Jacket2'
-ref_code__map['R595-11-15971-34254-Jacket-1'] = 'R595/11/15971/34254/Jacket1'
-ref_code__map['R3335-15-6960-6873'] = 'R3335/15/6960/6873/Jacket2'
-ref_code__map['R1586-40-35975-13313'] = ' R1586/40/13313/35975'
 
 
 class ProgressPercentage:
@@ -314,6 +305,19 @@ def create_package(folder, document, content_paths, config, item, progress):
                             aws_session_token=session_token)
     s3 = session.resource(service_name="s3")
 
+    s3_client = session.resource(service_name="s3").meta.client
+    key_list = s3_client.list_objects(Bucket=bucket_name)['Contents']
+    bucket_size = len(key_list)
+
+    print(f"Bucket Size: {bucket_size}")
+
+    if bucket_size > MAX_BUCKET_SIZE:
+        time.sleep(60)
+        key_list = s3_client.list_objects(Bucket=bucket_name)['Contents']
+        bucket_size = len(key_list)
+        print(f"Bucket Size: {bucket_size}")
+
+
     upload_key = str(uuid.uuid4())
     s3_object = s3.Object(bucket_name, upload_key)
     metadata = dict()
@@ -356,7 +360,6 @@ def create_package(folder, document, content_paths, config, item, progress):
 
 
 def try_to_find_record_from_folder(folder, catalogue):
-
     if folder in ref_code__map:
         ref_code = ref_code__map[folder]
     else:
@@ -375,6 +378,7 @@ def try_to_find_record_from_folder(folder, catalogue):
 def main():
     config = configparser.ConfigParser()
     config.read('credentials.properties')
+    num_processed = 0
 
     dry_run = bool(config['credentials'].get("dry.run", fallback="True") == "True")
 
@@ -423,6 +427,7 @@ def main():
                         print(f"{ref_code} already exists with ref: {asset.reference}. Skipping....")
                     elif len(identifiers) == 0:
                         print(f"{ref_code} does not exists, creating new asset...")
+                        num_processed = num_processed + 1
                         if dry_run:
                             print(f"Dry-run enabled skipping...")
                             continue
@@ -444,6 +449,7 @@ def main():
 
     catalogue.close()
     progress.close()
+    print(num_processed)
 
 
 if __name__ == '__main__':
