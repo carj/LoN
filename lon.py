@@ -5,7 +5,7 @@ import csv
 import xml.etree.ElementTree
 import xml.dom.minidom
 from pathlib import Path
-
+from multiprocessing import Pool
 from pyPreservica import *
 import base64
 import uuid
@@ -20,13 +20,24 @@ from Catalogue import Catalogue, create_tree, ProgressDB, Submission
 REF_NO = "REF"
 ScopeArchivID = "ScopeArchivID"
 
-MAX_BUCKET_SIZE = 48
+MAX_BUCKET_SIZE = 3200000
+
+POOL_SIZE = 3
 
 folder_map = dict()
 
 transfer_config = boto3.s3.transfer.TransferConfig()
 
 ref_code__map = dict()
+
+
+class ThreadCallBack:
+    def __init__(self, progressDB):
+        self.progressDB = progressDB
+
+    def __call__(self, result):
+        self.progressDB.save(result)
+        print(f"Completed Upload of {result.refCode}")
 
 
 class ProgressPercentage:
@@ -224,7 +235,7 @@ def session_key(server, bucket_name, username, password, aeskey):
         return access_key, secret_key, session_token, source_type, endpoint
 
 
-def create_package(folder, document, content_paths, config, item, progress):
+def create_package(folder, document, content_paths, item, config):
     for path in content_paths:
         if "PDF" in path:
             pdf_document_folder = path
@@ -246,6 +257,7 @@ def create_package(folder, document, content_paths, config, item, progress):
     password = config['credentials']['password']
     server = config['credentials']['server']
     aeskey = config['credentials']['AESkey']
+    tenant = config['credentials']['tenant']
 
     preservation_files_list = list()
     access_files_list = list()
@@ -305,18 +317,13 @@ def create_package(folder, document, content_paths, config, item, progress):
                             aws_session_token=session_token)
     s3 = session.resource(service_name="s3")
 
-    s3_client = session.resource(service_name="s3").meta.client
-    key_list = s3_client.list_objects(Bucket=bucket_name)['Contents']
-    bucket_size = len(key_list)
+    workflow = WorkflowAPI(server=server, username=username, password=password, tenant=tenant)
+    workflow_size = len(list(workflow.workflow_instances(workflow_state="Active", workflow_type="Ingest")))
 
-    print(f"Bucket Size: {bucket_size}")
-
-    if bucket_size > MAX_BUCKET_SIZE:
-        time.sleep(60)
-        key_list = s3_client.list_objects(Bucket=bucket_name)['Contents']
-        bucket_size = len(key_list)
-        print(f"Bucket Size: {bucket_size}")
-
+    while workflow_size > MAX_BUCKET_SIZE:
+        time.sleep(120)
+        workflow_size = len(list(workflow.workflow_instances(workflow_state="Active", workflow_type="Ingest")))
+        print(f"Workflow Size: {workflow_size}")
 
     upload_key = str(uuid.uuid4())
     s3_object = s3.Object(bucket_name, upload_key)
@@ -339,6 +346,8 @@ def create_package(folder, document, content_paths, config, item, progress):
 
     print(f"Upload of {asset_title} complete.")
 
+    sys.stdout.flush()
+
     ##add to progress
     submission = Submission()
     submission.systemId = item['id']
@@ -353,10 +362,10 @@ def create_package(folder, document, content_paths, config, item, progress):
     submission.JP2 = str(pdf_document_folder)
     submission.PDF = str(jp2_document_folder)
 
-    progress.save(submission)
-
     os.remove(metadata_path)
     os.remove(package_path)
+
+    return submission
 
 
 def try_to_find_record_from_folder(folder, catalogue):
@@ -376,8 +385,6 @@ def try_to_find_record_from_folder(folder, catalogue):
 
 
 def main():
-    config = configparser.ConfigParser()
-    config.read('credentials.properties')
     num_processed = 0
 
     dry_run = bool(config['credentials'].get("dry.run", fallback="True") == "True")
@@ -389,20 +396,15 @@ def main():
         if key:
             batch_paths.append(key)
 
-    java_home = config['credentials']['java_home']
-    catalogue_path = config['credentials']['catalogue.path']
-    jar_path = config['credentials']['jar_path']
-    document_path = config['credentials']['document.path']
-    security_tag = config['credentials']['security.tag']
-
-    catalogue = Catalogue(java_home, catalogue_path, jar_path)
-    progress = ProgressDB(java_home, document_path, jar_path)
-
     entity = EntityAPI()
 
     max_submission = int(config['credentials']['max.submission'])
 
     numb_submission = int(0)
+
+    threadCallBack = ThreadCallBack(progress)
+
+    pool = Pool(processes=POOL_SIZE)
 
     for path in batch_paths:
         batch_id = os.path.basename(os.path.dirname(path))
@@ -434,23 +436,42 @@ def main():
                         else:
                             folder = get_folder(entity, result, catalogue, security_tag)
                             content_paths = document_map[key]
-                            create_package(folder, key, content_paths, config, result, progress)
+
+                            pool.apply_async(func=create_package, args=(folder, key, content_paths, result, config),
+                                             callback=threadCallBack)
                             numb_submission = numb_submission + 1
                             if max_submission > 0:
                                 if numb_submission >= max_submission:
                                     print("Max Submission Reached")
-                                    return
+                                    break
                     elif len(identifiers) > 1:
-                        print("Found Duplicate Assets for {ref_code}")
+                        print(f"Found Duplicate Assets for {ref_code}")
                 else:
                     csv_writer.writerow((batch_id, key, ref_code))
                     progress.save_not_matched(key, ref_code, batch_id)
                     print(f"Could not match folder name {key} to a valid ref code. Tried to use {ref_code}")
 
-    catalogue.close()
-    progress.close()
+    pool.close()
+    print(f"Waiting for Uploads to Complete")
+    pool.join()
+
     print(num_processed)
 
 
 if __name__ == '__main__':
+    config = configparser.ConfigParser()
+    config.read('credentials.properties')
+
+    java_home = config['credentials']['java_home']
+    catalogue_path = config['credentials']['catalogue.path']
+    jar_path = config['credentials']['jar_path']
+    document_path = config['credentials']['document.path']
+    security_tag = config['credentials']['security.tag']
+
+    catalogue = Catalogue(java_home, catalogue_path, jar_path)
+    progress = ProgressDB(java_home, document_path, jar_path)
+
     main()
+
+    catalogue.close()
+    progress.close()

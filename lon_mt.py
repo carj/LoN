@@ -31,16 +31,6 @@ transfer_config = boto3.s3.transfer.TransferConfig()
 ref_code__map = dict()
 
 
-
-ref_code__map['S1643-2-36-6'] = 'S1643/2/36/6'
-
-
-#  
-
-
-
-
-
 class ThreadCallBack:
     def __init__(self, progressDB):
         self.progressDB = progressDB
@@ -115,6 +105,9 @@ def get_document_locations(format_paths):
 def get_code_from_box(document):
     document = document.strip()
     document = document.replace("-", "/")
+
+
+
     return document
 
 
@@ -271,7 +264,7 @@ def create_package(folder, document, content_paths, item, config):
     password = config['credentials']['password']
     server = config['credentials']['server']
     aeskey = config['credentials']['AESkey']
-    tenant = config['credentials']['tenant']  
+    tenant = config['credentials']['tenant']
 
     preservation_files_list = list()
     access_files_list = list()
@@ -338,7 +331,7 @@ def create_package(folder, document, content_paths, item, config):
         time.sleep(120)
         workflow_size = len(list(workflow.workflow_instances(workflow_state="Active", workflow_type="Ingest")))
         print(f"Workflow Size: {workflow_size}")
-        
+
     upload_key = str(uuid.uuid4())
     s3_object = s3.Object(bucket_name, upload_key)
     metadata = dict()
