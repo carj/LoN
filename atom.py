@@ -44,8 +44,9 @@ def create_tree(result, scope_id, parent_scope_id, ref_code):
     if 'scope_and_content' in result:
         ET.SubElement(root, 'ScopeAndContent').text = str(result['scope_and_content'])
 
-    if 'history' in result['creators'][0] and 'inherited_from' not in result['creators'][0]:
-        ET.SubElement(root, 'AdminHistory').text = str(result['creators'][0]['history'])
+    if 'creators' in result:
+        if 'history' in result['creators'][0] and 'inherited_from' not in result['creators'][0]:
+            ET.SubElement(root, 'AdminHistory').text = str(result['creators'][0]['history'])
 
     if 'archival_history' in result:
         ET.SubElement(root, 'ArchivalHistory').text = str(result['archival_history'])
